@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -11,24 +11,28 @@ import (
 )
 
 type CmdRequest struct {
-	Request  string `json:"request"`
-	Response string `json:"response"`
+	Request string `json:"request"`
+	// Response string `json:"response"`
 	// Response []byte `json:"response"`
 	// Error    error  `json:"error"`
 }
 
-func (c *CmdRequest) exCmd() error {
+func (c *CmdRequest) exCmd() ([]byte, error) {
+	fmt.Println("exCmd c.Request:", c.Request)
+
 	sCmd := strings.Fields(c.Request)
-	fmt.Printf("sCmd: %v\n", sCmd[1])
 	cmd := exec.Command(sCmd[0], sCmd[1:]...)
-	out, err := cmd.Output()
+	fmt.Printf("sCmd: %v\n", cmd)
+
+	// cmd.Dir = "/Users/greg/Workspace/enableit-api"
+	output, err := cmd.Output()
 	if err != nil {
 		fmt.Println("cmd.Output err:", err.Error())
-		return errors.New(err.Error())
+		return nil, err
 	}
-	fmt.Println("out:", string(out))
-	fmt.Printf("\ncmd output: %v\n", out)
-	return nil
+	fmt.Println("out:", string(output))
+	fmt.Printf("\ncmd output: %v\n", output)
+	return output, nil
 }
 
 // Handler for POST requests with a shell command
@@ -38,16 +42,21 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// new(Command) returns a pointer type which is used by Decode(*T), but maybe use var declaration instead
 	c := new(CmdRequest)
-	err := json.NewDecoder(r.Body).Decode(c)
+	body := make([]byte, r.ContentLength)
+	_, err := io.ReadFull(r.Body, body)
+	if err != nil {
+		fmt.Println(err) // TODO: handler err properly
+		return
+	}
+	err = json.Unmarshal(body, c)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	fmt.Printf("cmd decoded: %+v\n", c)
 
 	// Call function to execute the shell command and return err
-	err = c.exCmd()
+	output, err := c.exCmd()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -61,10 +70,19 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Write response reply
+	w.Header()
+	_, err = w.Write(output)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func main() {
 	http.HandleFunc("/api/cmd", handleCmdPost)
 	fmt.Println("starting the server...")
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+	err := http.ListenAndServe("localhost:8080", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
