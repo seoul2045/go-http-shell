@@ -12,20 +12,25 @@ import (
 
 type CmdRequest struct {
 	Request string `json:"request"`
-	// Response string `json:"response"`
-	// Response []byte `json:"response"`
-	// Error    error  `json:"error"`
 }
 
 // Method to execute a shell command
 func (c *CmdRequest) exCmd() ([]byte, error) {
 	sReq := strings.Fields(c.Request)
-	cmd := exec.Command(sReq[0], sReq[1:]...)
+	cmd := new(exec.Cmd)
+	switch {
+	case len(sReq) == 0:
+		return nil, fmt.Errorf("missing command %v", sReq)
+	case len(sReq) == 1:
+		cmd = exec.Command(sReq[0])
+	default:
+		cmd = exec.Command(sReq[0], sReq[1:]...)
+	}
 	output, err := cmd.Output()
 	fmt.Printf("25 cmd.ProcessState: %v\n", cmd.ProcessState)
 	fmt.Printf("26 output: %v\n", output)
 	if err != nil {
-		return nil, fmt.Errorf("bad shell command %v: %w", sReq, err)
+		return nil, fmt.Errorf("bad command %v: %w", sReq, err)
 	}
 	switch {
 	case len(output) == 0:
@@ -43,22 +48,23 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := new(CmdRequest)
+	cr := new(CmdRequest)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	err = json.Unmarshal(body, c)
+	err = json.Unmarshal(body, &cr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
 	}
 
 	// Call method to execute the shell command
-	output, err := c.exCmd()
+	output, err := cr.exCmd()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
 	}
 
 	// Write response reply
