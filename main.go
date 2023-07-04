@@ -17,22 +17,23 @@ type CmdRequest struct {
 	// Error    error  `json:"error"`
 }
 
+// Method to execute a shell command
 func (c *CmdRequest) exCmd() ([]byte, error) {
-	fmt.Println("exCmd c.Request:", c.Request)
-
-	sCmd := strings.Fields(c.Request)
-	cmd := exec.Command(sCmd[0], sCmd[1:]...)
-	fmt.Printf("sCmd: %v\n", cmd)
-
-	// cmd.Dir = "/Users/greg/Workspace/enableit-api"
+	sReq := strings.Fields(c.Request)
+	cmd := exec.Command(sReq[0], sReq[1:]...)
 	output, err := cmd.Output()
+	fmt.Printf("25 cmd.ProcessState: %v\n", cmd.ProcessState)
+	fmt.Printf("26 output: %v\n", output)
 	if err != nil {
-		fmt.Println("cmd.Output err:", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("bad shell command %v: %w", sReq, err)
 	}
-	fmt.Println("out:", string(output))
-	fmt.Printf("\ncmd output: %v\n", output)
-	return output, nil
+	switch {
+	case len(output) == 0:
+		output = fmt.Appendf(output, "successful command %v: %v\n", sReq, cmd.ProcessState)
+		return output, nil
+	default:
+		return output, nil
+	}
 }
 
 // Handler for POST requests with a shell command
@@ -43,35 +44,26 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := new(CmdRequest)
-	body := make([]byte, r.ContentLength)
-	_, err := io.ReadFull(r.Body, body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err) // TODO: handler err properly
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer r.Body.Close()
+
 	err = json.Unmarshal(body, c)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-	fmt.Printf("cmd decoded: %+v\n", c)
 
-	// Call function to execute the shell command and return err
+	// Call method to execute the shell command
 	output, err := c.exCmd()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	bs := make([]byte, r.ContentLength)
-	r.Body.Read(bs)
-
-	_, err = fmt.Fprintf(w, "\nRequest Body: %v\nHTTP Method: %s\nHeader: %v\n", string(bs), r.Method, r.Header)
-	if err != nil {
-		fmt.Println("handleCmdPost error:", err)
-		return
-	}
-
 	// Write response reply
-	w.Header()
+	w.Header().Set("Content-type", "text/plain")
 	_, err = w.Write(output)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
