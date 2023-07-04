@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -49,14 +48,11 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cr := new(CmdRequest)
-	body, err := io.ReadAll(r.Body)
+	dc := json.NewDecoder(r.Body)
+	dc.DisallowUnknownFields()
+	err := dc.Decode(cr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	err = json.Unmarshal(body, &cr)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, err.Error()+"; expected \"request\"", http.StatusNotFound)
 		return
 	}
 
