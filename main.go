@@ -49,7 +49,6 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer r.Body.Close()
 
 	err = json.Unmarshal(body, c)
 	if err != nil {
