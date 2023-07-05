@@ -26,8 +26,6 @@ func (c *CmdRequest) exCmd() ([]byte, error) {
 		cmd = exec.Command(sReq[0], sReq[1:]...)
 	}
 	output, err := cmd.Output()
-	fmt.Printf("25 cmd.ProcessState: %v\n", cmd.ProcessState)
-	fmt.Printf("26 output: %v\n", output)
 	if err != nil {
 		return nil, fmt.Errorf("bad command %v: %w", sReq, err)
 	}
@@ -46,7 +44,6 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	cr := new(CmdRequest)
 	dc := json.NewDecoder(r.Body)
 	dc.DisallowUnknownFields()
@@ -55,14 +52,12 @@ func handleCmdPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error()+"; expected \"request\"", http.StatusNotFound)
 		return
 	}
-
 	// Call method to execute the shell command
 	output, err := cr.exCmd()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-
 	// Write response reply
 	w.Header().Set("Content-type", "text/plain")
 	_, err = w.Write(output)
