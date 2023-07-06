@@ -16,8 +16,8 @@ type CmdRequest struct {
 
 // Method to execute a shell command
 func (c *CmdRequest) exCmd() ([]byte, error) {
-	sReq := strings.Fields(c.Request)
 	cmd := new(exec.Cmd)
+	sReq := strings.Fields(c.Request)
 	switch {
 	case len(sReq) == 1:
 		cmd = exec.Command(sReq[0])
@@ -29,7 +29,7 @@ func (c *CmdRequest) exCmd() ([]byte, error) {
 		return nil, fmt.Errorf("bad command %v: %w", sReq, err)
 	}
 	switch {
-	case len(output) == 0:
+	case len(output) == 0: // no output (e.g. $touch), return success message
 		output = fmt.Appendf(output, "successful command %v: %v\n", sReq, cmd.ProcessState)
 		return output, nil
 	default:
@@ -40,7 +40,7 @@ func (c *CmdRequest) exCmd() ([]byte, error) {
 func validate(r *http.Request) (*CmdRequest, error) {
 	cr := new(CmdRequest)
 	dc := json.NewDecoder(r.Body)
-	dc.DisallowUnknownFields()
+	dc.DisallowUnknownFields() // request only or return err
 	err := dc.Decode(cr)
 	if err != nil {
 		err = errors.New(err.Error() + "; expected \"request\"")
