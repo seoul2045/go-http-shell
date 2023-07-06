@@ -1,6 +1,7 @@
 # go-http-shell
 A basic Golang HTTP REST API for executing shell commands using the standard library.  
-API accepts a shell command via a POST request to `localhost:8080/api/cmd` and JSON body: `{"request": "pwd"}`    
+API accepts a shell command via a POST request to `localhost:8080/api/cmd` and JSON body:  
+`{"request": "pwd"}`    
 Errors are handled gracefully.  
 If a successful command has no output (e.g. touch, rm), then a SUCCESS message with exit status 0 no error will be returned.
 
